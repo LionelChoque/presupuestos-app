@@ -49,29 +49,72 @@ console.log(`index.html existe: ${fs.existsSync(indexPath)}`);
 let currentUser = null; // Usuario actualmente autenticado
 let sessionToken = null; // Token de sesión simulado
 
-// Simulación de base de datos en memoria para pruebas
-const users = [];
-
-// Mejorar la ruta de registro para crear y autenticar usuario inmediatamente
-app.post('/api/auth/register', async (req, res) => {
+// Mejorar la ruta de login para "iniciar sesión" con token
+app.post('/api/auth/login', async (req, res) => {
   try {
-    console.log('Intento de registro con datos completos:', req.body);
+    console.log('Intento de login con datos completos:', req.body);
     
-    // Para fines de prueba, siempre crear un usuario nuevo
+    // Para fines de depuración, aceptar cualquier usuario/contraseña
+    // En una implementación real, verificaríamos contra la base de datos
+    
     const mockUser = {
-      id: users.length + 1,
-      username: req.body?.username || 'nuevo_usuario',
-      nombre: req.body?.nombre || 'Usuario',
-      apellido: req.body?.apellido || 'Registrado',
-      email: req.body?.email || 'usuario@ejemplo.com',
-      rol: 'admin', // Primer usuario siempre es admin para pruebas
+      id: 1,
+      username: req.body?.username || 'admin',
+      nombre: 'Usuario',
+      apellido: 'Demo',
+      email: 'usuario@ejemplo.com',
+      rol: 'admin',
       activo: true,
       fechaCreacion: new Date(),
       ultimoAcceso: new Date()
     };
     
-    // Guardar en la base de datos simulada
-    users.push({...mockUser, password: req.body?.password || 'password'});
+    // Establecer usuario actual y generar token
+    currentUser = mockUser;
+    sessionToken = Date.now().toString(36) + Math.random().toString(36).substr(2);
+    
+    console.log('Usuario autenticado:', mockUser);
+    console.log('Token generado:', sessionToken);
+    
+    // Configurar un encabezado de autorización personalizado
+    res.setHeader('X-Auth-Token', sessionToken);
+    
+    res.status(200).json(mockUser);
+  } catch (error) {
+    console.error('Error en login:', error);
+    res.status(500).json({ message: 'Error en el servidor' });
+  }
+});
+
+// Modificar la ruta de verificación de usuario para aceptar el token
+app.get('/api/auth/user', (req, res) => {
+  // Para fines de prueba, siempre devolver el usuario simulado
+  if (currentUser) {
+    console.log('Verificación de usuario: devolviendo usuario autenticado');
+    return res.status(200).json(currentUser);
+  }
+  
+  console.log('Verificación de usuario: no autenticado');
+  res.status(401).json({ message: 'No autenticado' });
+});
+
+// Modificar ruta de registro para crear usuario inmediatamente
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    console.log('Intento de registro con datos:', req.body);
+    
+    // Crear usuario simulado
+    const mockUser = {
+      id: 1,
+      username: req.body?.username || 'nuevo_usuario',
+      nombre: req.body?.nombre || 'Usuario',
+      apellido: req.body?.apellido || 'Registrado',
+      email: req.body?.email || 'usuario@ejemplo.com',
+      rol: 'admin',
+      activo: true,
+      fechaCreacion: new Date(),
+      ultimoAcceso: new Date()
+    };
     
     // Establecer como usuario actual
     currentUser = mockUser;
@@ -86,62 +129,9 @@ app.post('/api/auth/register', async (req, res) => {
     res.status(201).json(mockUser);
   } catch (error) {
     console.error('Error en registro:', error);
-    res.status(500).json({ message: 'Error en el servidor: ' + error.message });
+    res.status(500).json({ message: 'Error en el servidor' });
   }
 });
-
-// Mejorar la ruta de login para "iniciar sesión" con token
-app.post('/api/auth/login', async (req, res) => {
-  try {
-    console.log('Intento de login con datos completos:', req.body);
-    
-    // Para fines de prueba, aceptar cualquier combinación de usuario/contraseña
-    const mockUser = {
-      id: 1,
-      username: req.body?.username || 'admin',
-      nombre: 'Usuario',
-      apellido: 'Demo',
-      email: 'usuario@ejemplo.com',
-      rol: 'admin',
-      activo: true,
-      fechaCreacion: new Date(),
-      ultimoAcceso: new Date()
-    };
-    
-    // Si ya existen usuarios en la base de datos simulada, usar el primero
-    if (users.length > 0) {
-      const existingUser = users.find(u => u.username === req.body?.username);
-      if (existingUser) {
-        // Omitir la contraseña del usuario existente
-        const { password, ...userWithoutPass } = existingUser;
-        currentUser = userWithoutPass;
-      } else {
-        currentUser = mockUser;
-        // Guardar en la base de datos simulada
-        users.push({...mockUser, password: req.body?.password || 'password'});
-      }
-    } else {
-      currentUser = mockUser;
-      // Guardar en la base de datos simulada
-      users.push({...mockUser, password: req.body?.password || 'password'});
-    }
-    
-    // Generar token de sesión
-    sessionToken = Date.now().toString(36) + Math.random().toString(36).substr(2);
-    
-    console.log('Usuario autenticado:', currentUser);
-    console.log('Token generado:', sessionToken);
-    
-    // Configurar un encabezado de autorización personalizado
-    res.setHeader('X-Auth-Token', sessionToken);
-    
-    res.status(200).json(currentUser);
-  } catch (error) {
-    console.error('Error en login:', error);
-    res.status(500).json({ message: 'Error en el servidor: ' + error.message });
-  }
-});
-
 // Modificar la ruta de verificación de usuario para simular autenticación
 app.get('/api/auth/user', (req, res) => {
   // Para fines de prueba, verificar si hay un usuario actual
