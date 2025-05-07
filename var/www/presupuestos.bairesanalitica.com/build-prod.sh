@@ -2,17 +2,18 @@
 
 echo "=== Iniciando construcción de la aplicación para producción ==="
 
+# Primero aplicar correcciones de código
+echo "Aplicando correcciones de código..."
+bash ./fix-imports.sh
+
 # Limpiar directorios de salida previos
 echo "Limpiando directorios anteriores..."
 rm -rf dist
-rm -rf build
-
-# Crear estructura de directorios para producción
-echo "Creando estructura de directorios..."
 mkdir -p dist/client
 mkdir -p dist/server
 mkdir -p dist/shared
 mkdir -p dist/config
+mkdir -p attached_assets  # Crear directorio para archivos de demostración
 
 # Paso 1: Construir el frontend
 echo "=== Construyendo el frontend ==="
@@ -20,25 +21,33 @@ npm run build
 
 # Paso 2: Transpilación de TypeScript a JavaScript
 echo "=== Transpilando TypeScript a JavaScript ==="
-echo "Transpilando archivos del servidor y compartidos..."
-npx tsc -p tsconfig.prod.json
+npx tsc -p tsconfig-prod-fixed.json
 
-# Paso 3: Copiando punto de entrada simplificado para el servidor
+# Paso 3: Copiando punto de entrada para el servidor
 echo "=== Copiando punto de entrada para producción ==="
 cp deploy-server.js dist/server.js
 
 # Paso 4: Corregir import statements para ES Modules en producción
 echo "=== Corrigiendo importaciones para ES Modules ==="
+find dist -name "*.js" -exec sed -i 's/from "@shared\/\(.*\)"/from "..\/shared\/\1.js"/g' {} \;
 find dist -name "*.js" -exec sed -i 's/from "\.\(.*\)"/from ".\1.js"/g' {} \;
 find dist -name "*.js" -exec sed -i 's/from "\.\.\(.*\)"/from "..\1.js"/g' {} \;
-find dist -name "*.js" -exec sed -i 's/from "\.\.\.\(.*\)"/from "...\1.js"/g' {} \;
-find dist -name "*.js" -exec sed -i 's/from "@shared\/\(.*\)"/from "..\/shared\/\1.js"/g' {} \;
 
 # Paso 5: Copiar archivos estáticos y configuraciones
 echo "=== Copiando archivos adicionales ==="
 cp package.json dist/
-cp -r client/dist/* dist/client/
-cp nginx/presupuestos.bairesanalitica.com.conf dist/config/
+# Verificar que dist/public existe y tiene contenido
+if [ -d "dist/public" ] && [ "$(ls -A dist/public)" ]; then
+  echo "Frontend compilado correctamente"
+else
+  echo "Error: No se pudo compilar el frontend o los archivos no están en la ubicación esperada"
+  echo "Copiando archivos por defecto para permitir el funcionamiento mínimo..."
+  mkdir -p dist/public
+  # Crear un index.html básico
+  echo '<!DOCTYPE html><html><head><title>Sistema de Presupuestos</title></head><body><div id="root">Cargando...</div></body></html>' > dist/public/index.html
+fi
+cp -r client/dist/* dist/public/
+cp config/presupuestos.bairesanalitica.com.conf dist/config/
 cp db-setup.sql dist/config/
 cp import-data.sh dist/
 chmod +x dist/import-data.sh

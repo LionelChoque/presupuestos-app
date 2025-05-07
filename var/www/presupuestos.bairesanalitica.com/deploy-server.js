@@ -20,7 +20,7 @@ async function startServer() {
     app.use(express.urlencoded({ extended: true, limit: '50mb' }));
     
     // Servir archivos estáticos del cliente
-    app.use(express.static(path.join(__dirname, 'client')));
+    app.use(express.static(path.join(__dirname, 'public')));
     
     // Importar las rutas de la API
     const { registerRoutes } = await import('./server/routes.js');
@@ -28,7 +28,7 @@ async function startServer() {
     
     // Configurar ruta comodín para SPA
     app.get('*', (req, res) => {
-      res.sendFile(path.join(__dirname, 'client', 'index.html'));
+      res.sendFile(path.join(__dirname, 'public', 'index.html'));
     });
     
     // Manejador de errores global

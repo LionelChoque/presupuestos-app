@@ -17,9 +17,9 @@ import {
   importLogs,
   users,
   userActivities
-} from "../shared/schema.js";
-import { convertCsvToBudgets, compareBudgets } from "../client/src/lib/csvParser.js";
-import { db } from "./db.js";
+} from "@shared/schema";
+import { convertCsvToBudgets, compareBudgets } from "../client/src/lib/csvParser";
+import { db } from "./db";
 import { eq, desc, sql, inArray } from "drizzle-orm";
 
 // Interface for storage operations
@@ -82,7 +82,11 @@ export class DatabaseStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db
       .insert(users)
-      .values(insertUser)
+      .values({
+        username: insertUser.username,
+        password: insertUser.password,
+        // otros campos necesarios
+      })
       .returning();
     return user;
   }
@@ -109,7 +113,7 @@ export class DatabaseStorage implements IStorage {
   async createUserActivity(activity: InsertUserActivity): Promise<UserActivity> {
     const [userActivity] = await db
       .insert(userActivities)
-      .values(activity)
+      .values(activity as any)
       .returning();
     return userActivity;
   }

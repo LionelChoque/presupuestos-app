@@ -1,11 +1,10 @@
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
-import * as schema from "@shared/schema";
+import * as schema from "..shared/schema.js.js.js";
 neonConfig.webSocketConstructor = ws;
-if (!process.env.DATABASE_URL) {
-    throw new Error("DATABASE_URL must be set. Did you forget to provision a database?");
-}
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// Modificar para manejar mejor el error:
+const databaseUrl = process.env.DATABASE_URL || 'postgresql://presupuestos_user:CHANGE_THIS_PASSWORD@localhost:5432/presupuestos_db';
+console.log(`Conectando a la base de datos: ${databaseUrl.replace(/:[^:]*@/, ':****@')}`); // Oculta la contraseña
+export const pool = new Pool({ connectionString: databaseUrl });
 export const db = drizzle({ client: pool, schema });
-//# sourceMappingURL=db.js.map

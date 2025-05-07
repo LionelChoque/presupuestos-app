@@ -1,8 +1,9 @@
 import express from "express";
-import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
-import { setupAuth } from "./auth";
+import { registerRoutes } from "./routes.js.js";
+import { setupVite, serveStatic, log } from "./vite.js.js";
+import { setupAuth } from "./auth.js.js";
 const app = express();
+// Aumentar límite para permitir archivos CSV más grandes (50MB)
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 app.use((req, res, next) => {
@@ -30,6 +31,7 @@ app.use((req, res, next) => {
     next();
 });
 (async () => {
+    // Configurar autenticación antes de registrar las rutas
     setupAuth(app);
     const server = await registerRoutes(app);
     app.use((err, _req, res, _next) => {
@@ -37,13 +39,20 @@ app.use((req, res, next) => {
         const message = err.message || "Internal Server Error";
         console.error("Server error:", err);
         res.status(status).json({ message });
+        // No lanzamos la excepción nuevamente para evitar que se detenga el servidor
     });
+    // importantly only setup vite in development and after
+    // setting up all the other routes so the catch-all route
+    // doesn't interfere with the other routes
     if (app.get("env") === "development") {
         await setupVite(app, server);
     }
     else {
         serveStatic(app);
     }
+    // ALWAYS serve the app on port 5000
+    // this serves both the API and the client.
+    // It is the only port that is not firewalled.
     const port = 5000;
     server.listen({
         port,
@@ -53,4 +62,3 @@ app.use((req, res, next) => {
         log(`serving on port ${port}`);
     });
 })();
-//# sourceMappingURL=index.js.map

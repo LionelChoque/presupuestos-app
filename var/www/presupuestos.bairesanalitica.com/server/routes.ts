@@ -2,10 +2,11 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage.js";
 import { z } from 'zod';
-import { insertContactInfoSchema, insertBudgetSchema } from '@shared/schema';
+import { insertContactInfoSchema, insertBudgetSchema } from '../shared/schema.js';
 import { readFileSync } from 'fs';
 import path from 'path';
-import { setupAuth, isAuthenticated, isAdmin, logUserActivity } from './auth';
+import { setupAuth, isAuthenticated, isAdmin, logUserActivity } from './auth.js';
+import fs from 'fs';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Configurar autenticación
@@ -189,7 +190,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { csvData, options } = validatedData.data;
       
       // Process CSV data and save to storage
-      const result = await storage.importCsvData(csvData, options);
+      const rawCsvData = readFileSync(csvFilePath, 'utf-8');
+      const result = await storage.importCsvData(rawCsvData, options);
+
       
       // Log the import
       await storage.createImportLog({
@@ -249,10 +252,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const { options } = validatedData.data;
       
-      // Leer el archivo CSV de demostración directamente desde el servidor
-      const csvFilePath = path.join(process.cwd(), 'attached_assets', 'PRESUPUESTOS_CON_ITEMS.csv');
-      console.log(`Leyendo archivo CSV de demostración: ${csvFilePath}`);
-      const csvData = readFileSync(csvFilePath, 'utf-8');
+      // Modificar:
+const csvFilePath = path.join(process.cwd(), 'attached_assets', 'PRESUPUESTOS_CON_ITEMS.csv');
+
+// Y agregar manejo de error:
+try {
+  // Verificar si el archivo existe
+  if (!fs.existsSync(csvFilePath)) {
+    return res.status(404).json({ 
+      message: 'Archivo de demostración no encontrado. Cree el directorio attached_assets y coloque allí el archivo CSV.'
+    });
+  }
+  const csvData = readFileSync(csvFilePath, 'utf-8');
+  // Resto del código...
+} catch (error) {
+  console.error('Error al leer el archivo CSV:', error);
+  return res.status(500).json({ message: 'Error al leer el archivo CSV de demostración' });
+}
       
       // Procesar e importar los datos
       const result = await storage.importCsvData(csvData, options);

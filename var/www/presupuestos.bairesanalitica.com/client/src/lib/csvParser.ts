@@ -1,5 +1,5 @@
 import Papa, { ParseError, ParseResult } from 'papaparse';
-import { Budget, BudgetItem, CsvBudgetRow, ImportOptions, ImportResult } from './types';
+import { Budget, BudgetItem, CsvBudgetRow, ImportOptions, ImportResult } from './types.js';
 
 // Group the items by budget ID
 function groupItemsByBudget(rows: CsvBudgetRow[]): Map<string, CsvBudgetRow[]> {

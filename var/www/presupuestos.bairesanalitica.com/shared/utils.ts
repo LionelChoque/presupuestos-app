@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { InsertBudget, InsertBudgetItem } from './schema';
+import { InsertBudget, InsertBudgetItem } from './schema.js;
 import Papa from 'papaparse';
 
 export const csvRowSchema = z.object({

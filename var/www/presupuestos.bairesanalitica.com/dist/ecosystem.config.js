@@ -2,7 +2,6 @@ module.exports = {
   apps: [{
     name: 'presupuestos-app',
     script: 'server.js',
-    args: 'server/index.ts',
     instances: 1,
     autorestart: true,
     watch: false,

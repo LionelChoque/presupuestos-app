@@ -1,8 +1,10 @@
-import { budgets, budgetItems, contactInfo, importLogs, users, userActivities } from "@shared/schema";
-import { convertCsvToBudgets, compareBudgets } from "../client/src/lib/csvParser";
-import { db } from "./db";
+import { budgets, budgetItems, contactInfo, importLogs, users, userActivities } from "../shared/schema.js.js.js";
+import { convertCsvToBudgets, compareBudgets } from "../client/src/lib/csvParser.js.js";
+import { db } from "./db.js";
 import { eq, desc, sql } from "drizzle-orm";
+// Database storage implementation
 export class DatabaseStorage {
+    // User operations
     async getUser(id) {
         const [user] = await db.select().from(users).where(eq(users.id, id));
         return user || undefined;
@@ -14,7 +16,11 @@ export class DatabaseStorage {
     async createUser(insertUser) {
         const [user] = await db
             .insert(users)
-            .values(insertUser)
+            .values({
+            username: insertUser.username,
+            password: insertUser.password,
+            // otros campos necesarios
+        })
             .returning();
         return user;
     }
@@ -33,6 +39,7 @@ export class DatabaseStorage {
         const result = await db.select({ count: sql `count(*)` }).from(users);
         return Number(result[0].count);
     }
+    // User activity operations
     async createUserActivity(activity) {
         const [userActivity] = await db
             .insert(userActivities)
@@ -41,13 +48,16 @@ export class DatabaseStorage {
         return userActivity;
     }
     async getUserActivities(limit = 50, offset = 0) {
+        // Obtener actividades
         const activities = await db.select()
             .from(userActivities)
             .orderBy(desc(userActivities.timestamp))
             .limit(limit)
             .offset(offset);
+        // Procesar cada actividad para obtener el nombre de usuario
         const result = [];
         for (const activity of activities) {
+            // Obtener usuario
             const [user] = await db.select().from(users).where(eq(users.id, activity.userId));
             result.push({
                 ...activity,
@@ -65,13 +75,16 @@ export class DatabaseStorage {
             .offset(offset);
     }
     async getUserStats() {
+        // Total usuarios
         const totalUsers = await this.getUserCount();
+        // Usuarios activos en el último mes
         const oneMonthAgo = new Date();
         oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
         const activeUsersResult = await db.select({ count: sql `count(distinct user_id)` })
             .from(userActivities)
             .where(sql `timestamp > ${oneMonthAgo.toISOString()}`);
         const activeUsers = Number(activeUsersResult[0].count);
+        // Actividad por usuario (top 10)
         const activitiesData = await db.select({
             userId: userActivities.userId,
             count: sql `count(*)`,
@@ -80,6 +93,7 @@ export class DatabaseStorage {
             .groupBy(userActivities.userId)
             .orderBy(sql `count(*) desc`)
             .limit(10);
+        // Obtener nombres de usuario
         const userIdsList = activitiesData.map(a => a.userId);
         let usersData = [];
         if (userIdsList.length > 0) {
@@ -96,6 +110,7 @@ export class DatabaseStorage {
             username: usersMap[a.userId] || 'Usuario eliminado',
             count: Number(a.count)
         }));
+        // Actividades recientes
         const recentActivitiesRaw = await this.getUserActivities(10, 0);
         return {
             totalUsers,
@@ -104,6 +119,7 @@ export class DatabaseStorage {
             recentActivities: recentActivitiesRaw
         };
     }
+    // Budget operations
     async getAllBudgets() {
         const dbBudgets = await db.select().from(budgets);
         return dbBudgets;
@@ -113,9 +129,11 @@ export class DatabaseStorage {
         return budget;
     }
     async createBudget(insertBudget) {
+        // Asegurar que el presupuesto tenga un ID
         const budgetWithId = {
             ...insertBudget
         };
+        // Si no tiene ID, generamos uno basado en timestamp
         if (!budgetWithId.id) {
             budgetWithId.id = Date.now().toString();
         }
@@ -140,6 +158,7 @@ export class DatabaseStorage {
             .returning();
         return !!deletedBudget;
     }
+    // Budget items operations
     async getBudgetItems(budgetId) {
         const items = await db
             .select()
@@ -148,9 +167,11 @@ export class DatabaseStorage {
         return items;
     }
     async createBudgetItem(insertItem) {
+        // Aseguramos que el precio sea string (esperado por el esquema)
         const itemToInsert = {
             ...insertItem
         };
+        // Convertir precio a string si es necesario
         if (typeof itemToInsert.precio === 'number') {
             itemToInsert.precio = String(itemToInsert.precio);
         }
@@ -160,6 +181,7 @@ export class DatabaseStorage {
             .returning();
         return item;
     }
+    // Contact operations
     async getAllContacts() {
         const contacts = await db.select().from(contactInfo);
         return contacts;
@@ -189,14 +211,22 @@ export class DatabaseStorage {
             .returning();
         return updatedContact;
     }
+    // Import operations
     async importCsvData(csvData, options) {
         try {
+            // Parse CSV data into budgets
             const newBudgets = await convertCsvToBudgets(csvData);
             const existingBudgets = await this.getAllBudgets();
+            // Compare with existing budgets
+            // Usamos as any para evitar problemas de tipos durante la comparación
             const compareResult = compareBudgets(existingBudgets, newBudgets, options);
+            // Process budgets to add or update
             for (const budget of newBudgets) {
+                // Check if budget already exists
                 const existingBudget = await this.getBudget(budget.id);
                 if (existingBudget) {
+                    // Update existing budget, preserving user-entered data
+                    // Usamos as any para resolver problemas de tipos temporalmente
                     await this.updateBudget(budget.id, {
                         ...budget,
                         notas: existingBudget.notas,
@@ -205,13 +235,18 @@ export class DatabaseStorage {
                     });
                 }
                 else {
+                    // Create new budget
                     await this.createBudget(budget);
                 }
+                // Process budget items
                 if (budget.items && budget.items.length > 0) {
+                    // Clear existing items for this budget
                     await db
                         .delete(budgetItems)
                         .where(eq(budgetItems.budgetId, budget.id));
+                    // Add new items
                     for (const item of budget.items) {
+                        // Asegurar que los tipos sean correctos
                         const precio = typeof item.precio === 'number' ? String(item.precio) : item.precio;
                         const codigo = typeof item.codigo === 'number' ? String(item.codigo) : item.codigo;
                         await this.createBudgetItem({
@@ -224,6 +259,7 @@ export class DatabaseStorage {
                     }
                 }
             }
+            // Handle missing budgets (deleted/finalized)
             if (options.autoFinalizeMissing && options.compareWithPrevious) {
                 const newBudgetIds = new Set(newBudgets.map(b => b.id));
                 for (const existingBudget of existingBudgets) {
@@ -259,5 +295,5 @@ export class DatabaseStorage {
         return importLog;
     }
 }
+// Initialize the storage
 export const storage = new DatabaseStorage();
-//# sourceMappingURL=storage.js.map

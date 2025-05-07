@@ -13,6 +13,9 @@ export const csvRowSchema = z.object({
     Descuento: z.string().optional(),
     Validez: z.string().optional(),
 });
+/**
+ * Parses a CSV file into an array of structured data
+ */
 export function parseCsvFile(csvContent) {
     return new Promise((resolve, reject) => {
         Papa.parse(csvContent, {
@@ -42,11 +45,17 @@ export function parseCsvFile(csvContent) {
         });
     });
 }
+/**
+ * Calculates days between two dates
+ */
 export function daysBetween(date1, date2) {
-    const oneDay = 24 * 60 * 60 * 1000;
+    const oneDay = 24 * 60 * 60 * 1000; // hours*minutes*seconds*milliseconds
     const diffDays = Math.round(Math.abs((date1.getTime() - date2.getTime()) / oneDay));
     return diffDays;
 }
+/**
+ * Groups CSV rows by budget IDs
+ */
 export function groupRowsByBudgetId(rows) {
     const budgetMap = new Map();
     for (const row of rows) {
@@ -57,15 +66,21 @@ export function groupRowsByBudgetId(rows) {
     }
     return budgetMap;
 }
+/**
+ * Converts a parsed CSV row to a budget item
+ */
 export function convertRowToBudgetItem(row, budgetId) {
     return {
         budgetId,
         codigo: row.Codigo_Producto || '',
         descripcion: row.Descripcion || '',
-        precio: parseFloat(row.NetoItems_USD.replace(',', '.')) * 100,
+        precio: parseFloat(row.NetoItems_USD.replace(',', '.')) * 100, // Convert to cents
         cantidad: parseInt(row.Cantidad || '1', 10),
     };
 }
+/**
+ * Determines the follow-up type, priority, and action based on budget data
+ */
 export function determineFollowUpStatus(diasTranscurridos, diasRestantes, validez) {
     let tipoSeguimiento;
     let accion;
@@ -92,6 +107,9 @@ export function determineFollowUpStatus(diasTranscurridos, diasRestantes, valide
     }
     return { tipoSeguimiento, prioridad, accion };
 }
+/**
+ * Generate alerts based on budget data
+ */
 export function generateAlerts(validez, diasRestantes) {
     const alertas = [];
     if (validez === 0) {
@@ -108,4 +126,3 @@ export function generateAlerts(validez, diasRestantes) {
     }
     return alertas;
 }
-//# sourceMappingURL=utils.js.map
